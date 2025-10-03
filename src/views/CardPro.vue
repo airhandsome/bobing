@@ -412,6 +412,7 @@ function addFrameToExistingAvatar() {
         // 克隆头像，归一到组局部坐标，并依据新外框形状更新裁剪
         loneAvatar.clone((cloned) => {
             cloned.set({ left: 0, top: 0, originX: 'center', originY: 'center' });
+            cloned.name = '头像';
             // 依据当前选择的外框，重建 clipPath（遮罩）
             const baseSize = Math.min(cloned.width, cloned.height);
             if (state.avatarFrame === 'circle') {
@@ -456,6 +457,7 @@ function addFrameToExistingAvatar() {
     // 克隆头像用于新组，并同步遮罩
     avatar.clone((cloned) => {
         cloned.set({ left: 0, top: 0, originX: 'center', originY: 'center' });
+        cloned.name = '头像';
         const baseSize = Math.min(cloned.width, cloned.height);
         if (state.avatarFrame === 'circle') {
             cloned.clipPath = new fabric.Circle({ radius: baseSize/2, originX: 'center', originY: 'center' });
@@ -751,7 +753,6 @@ function moveLayer(i, dir) {
 						<option value="square">方形外框</option>
 						<option value="flower">花朵外框</option>
 						<option value="star">星形外框</option>
-						<option value="heart">心形外框</option>
 						<option value="diamond">菱形外框</option>
 					</select>
 				</label>
@@ -759,11 +760,11 @@ function moveLayer(i, dir) {
 				<div class="assets">
 					<div class="group">素材</div>
 					<div class="list">
-						<button class="chip" @click="addImage('moon.png')">moon.png</button>
-						<button class="chip" @click="addImage('lamp.png')">lamp.png</button>
-						<button class="chip" @click="addImage('rabbit1.png')">rabbit1.png</button>
-						<button class="chip" @click="addImage('rabbit2.png')">rabbit2.png</button>
-						<button class="chip" @click="addImage('wicker.png')">wicker.png</button>
+						<button class="chip" @click="addImage('moon.png')">月亮</button>
+						<button class="chip" @click="addImage('lamp.png')">灯笼</button>
+						<button class="chip" @click="addImage('rabbit1.png')">兔子1</button>
+						<button class="chip" @click="addImage('rabbit2.png')">兔子2</button>
+						<button class="chip" @click="addImage('wicker.png')">柳枝</button>
 					</div>
 				</div>
 				<div class="panel">

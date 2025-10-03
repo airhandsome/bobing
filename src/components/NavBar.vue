@@ -17,7 +17,7 @@ function toggleMenu() { mobileOpen.value = !mobileOpen.value }
 				<RouterLink to="/game">开始博饼</RouterLink>
 				<RouterLink to="/knowledge">什么是博饼</RouterLink>
 				<RouterLink to="/avatar">头像定制</RouterLink>
-				<RouterLink to="/card">中秋贺卡</RouterLink>
+				<!-- <RouterLink to="/card">中秋贺卡</RouterLink> -->
 				<RouterLink to="/card-pro">贺卡（专业版）</RouterLink>
 			</nav>
 			<button class="menu" @click="toggleMenu" aria-label="切换菜单">☰</button>
