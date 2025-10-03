@@ -16,7 +16,12 @@ const state = reactive({
 	ringWidth: 12,
 	scale: 1,
 	offsetX: 0,
-	offsetY: 0
+	offsetY: 0,
+	// 叠加贴纸（参考 portrait-generate）
+	overlayBase: '/portrait/',
+	overlayList: ['1.png','2.png','3.png','4.png','5.png','6.png','7.png','8.png','9.png','10.png','11.png'],
+	overlayIndex: -1,
+	loadedOverlay: null
 });
 
 function onUpload(e) {
@@ -77,6 +82,15 @@ function draw() {
 	if (state.mask === 'lantern-corners') drawLanternCorners(ctx);
 	if (state.mask === 'rainbow-corner') drawRainbowCorner(ctx);
 	if (state.mask === 'star-confetti') drawStarConfetti(ctx);
+
+	// portrait叠加贴纸
+	if (state.loadedOverlay) {
+		ctx.save();
+		ctx.globalCompositeOperation = 'source-over';
+		ctx.imageSmoothingQuality = 'high';
+		ctx.drawImage(state.loadedOverlay, 0, 0, size, size);
+		ctx.restore();
+	}
 }
 
 function roundedRect(ctx, x, y, w, h, r) {
@@ -275,7 +289,48 @@ function download() {
 	link.click();
 }
 
-watch(() => [state.shape, state.mask, state.scale, state.offsetX, state.offsetY, state.loadedImg], draw, { deep: true });
+function setOverlayByIndex(i) {
+	if (i < 0 || i >= state.overlayList.length) { state.overlayIndex = -1; state.loadedOverlay = null; draw(); return; }
+	state.overlayIndex = i;
+	const url = state.overlayBase + state.overlayList[i];
+	const img = new Image();
+	img.onload = () => { state.loadedOverlay = img; draw(); };
+	img.onerror = () => { state.loadedOverlay = null; draw(); };
+	img.src = url;
+}
+
+function prevOverlay() {
+	if (!state.overlayList.length) return;
+	if (state.overlayIndex === -1) { setOverlayByIndex(0); return; }
+	const next = (state.overlayIndex - 1 + state.overlayList.length) % state.overlayList.length;
+	setOverlayByIndex(next);
+}
+
+function nextOverlay() {
+	if (!state.overlayList.length) return;
+	if (state.overlayIndex === -1) { setOverlayByIndex(0); return; }
+	const next = (state.overlayIndex + 1) % state.overlayList.length;
+	setOverlayByIndex(next);
+}
+
+function randomOverlay() {
+	if (!state.overlayList.length) return;
+	const idx = Math.floor(Math.random() * state.overlayList.length);
+	setOverlayByIndex(idx);
+}
+
+function clearOverlay() { setOverlayByIndex(-1); }
+
+function onUploadOverlay(e) {
+	const file = e.target.files && e.target.files[0];
+	if (!file) return;
+	const url = URL.createObjectURL(file);
+	const img = new Image();
+	img.onload = () => { state.loadedOverlay = img; state.overlayIndex = -1; draw(); };
+	img.src = url;
+}
+
+watch(() => [state.shape, state.mask, state.scale, state.offsetX, state.offsetY, state.loadedImg, state.loadedOverlay], draw, { deep: true });
 onMounted(draw);
 </script>
 
@@ -312,6 +367,19 @@ onMounted(draw);
 						<option value="rainbow-corner">彩虹转角</option>
 						<option value="star-confetti">星光点点</option>
 					</select>
+				</label>
+				<div class="row">
+					<span>国庆贴纸</span>
+					<div style="display:flex; gap:8px; flex:1; justify-content:flex-end;">
+						<button class="btn" @click="prevOverlay">上一个</button>
+						<button class="btn" @click="nextOverlay">下一个</button>
+						<button class="btn" @click="randomOverlay">随机</button>
+						<button class="btn" @click="clearOverlay">清除</button>
+					</div>
+				</div>
+				<label class="row">
+					<span>自定义贴纸</span>
+					<input type="file" accept="image/*" @change="onUploadOverlay" />
 				</label>
 	<div class="row">
 		<span>环形边框</span>
