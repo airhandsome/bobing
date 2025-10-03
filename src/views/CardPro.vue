@@ -14,7 +14,9 @@ function getCanvasSize() {
 			H: Math.round(maxWidth * 1.33) // 保持3:4比例
 		};
 	}
-	return { W: 900, H: 1200 }; // PC端尺寸
+	// PC 端固定画布宽度为 635px，并保持 3:4 比例
+	const desktopW = 635;
+	return { W: desktopW, H: Math.round(desktopW * 1.33) };
 }
 
 const { W, H } = getCanvasSize();
@@ -26,6 +28,7 @@ const state = reactive({
 	midAutumnBase: '/mid-autumn/',
 	layers: [],
 	selected: null,
+	avatarFrame: 'none', // none | circle | square | flower | star | heart | diamond
 	inspector: {
 		text: '',
 		fill: '#ffd700',
@@ -152,26 +155,338 @@ function addAvatar() {
 			// 移动端缩放头像
 			const isMobile = window.innerWidth <= 768;
 			const scale = isMobile ? 0.5 : 0.8; // 移动端头像更小
-			// 设置为圆形头像
-			img.set({ 
-				left: currentW/2, 
-				top: currentH/2, 
-				originX: 'center', 
-				originY: 'center',
-				cornerStyle: 'circle',
-				transparentCorners: false,
-				scaleX: scale,
-				scaleY: scale,
-				clipPath: new fabric.Circle({ radius: Math.min(img.width, img.height) / 2, originX: 'center', originY: 'center' })
-			});
-			img.name = '头像';
-			canvas.add(img);
-			canvas.setActiveObject(img);
+			
+			// 根据选择的框架类型设置裁剪路径
+			let clipPath = null;
+			if (state.avatarFrame === 'circle') {
+				clipPath = new fabric.Circle({ radius: Math.min(img.width, img.height) / 2, originX: 'center', originY: 'center' });
+			} else if (state.avatarFrame === 'square') {
+				const size = Math.min(img.width, img.height);
+				clipPath = new fabric.Rect({ width: size, height: size, originX: 'center', originY: 'center' });
+			} else if (state.avatarFrame === 'flower') {
+				clipPath = createFlowerClipPath(Math.min(img.width, img.height) / 2);
+			} else if (state.avatarFrame === 'star') {
+				clipPath = createStarClipPath(Math.min(img.width, img.height) / 2);
+			} else if (state.avatarFrame === 'heart') {
+				clipPath = createHeartClipPath(Math.min(img.width, img.height) / 2);
+			} else if (state.avatarFrame === 'diamond') {
+				clipPath = createDiamondClipPath(Math.min(img.width, img.height) / 2);
+			}
+			
+            // 让图片在组内居中
+            img.set({ 
+                left: 0, 
+                top: 0, 
+                originX: 'center', 
+                originY: 'center',
+                cornerStyle: 'circle',
+                transparentCorners: false,
+                scaleX: scale,
+                scaleY: scale,
+                clipPath: clipPath
+            });
+            img.name = '头像';
+
+            // 生成外框（与图片分组，保证联动）
+            let frame = null;
+            if (state.avatarFrame !== 'none') {
+                frame = buildAvatarFrameForGroup(img, scale);
+            }
+            const children = frame ? [img, frame] : [img];
+            const group = new fabric.Group(children, { left: currentW/2, top: currentH/2, originX: 'center', originY: 'center' });
+            group.name = '头像组';
+            canvas.add(group);
+            canvas.setActiveObject(group);
 			canvas.requestRenderAll();
 			refreshLayers();
 		});
 	};
 	input.click();
+}
+
+// 创建花朵形状的裁剪路径
+function createFlowerClipPath(radius) {
+	// eslint-disable-next-line no-undef
+	const path = new fabric.Path('M 0,-' + radius + ' C ' + (radius * 0.3) + ',-' + (radius * 0.8) + ' ' + (radius * 0.8) + ',-' + (radius * 0.3) + ' ' + radius + ',0 C ' + (radius * 0.8) + ',' + (radius * 0.3) + ' ' + (radius * 0.3) + ',' + (radius * 0.8) + ' 0,' + radius + ' C -' + (radius * 0.3) + ',' + (radius * 0.8) + ' -' + (radius * 0.8) + ',' + (radius * 0.3) + ' -' + radius + ',0 C -' + (radius * 0.8) + ',-' + (radius * 0.3) + ' -' + (radius * 0.3) + ',-' + (radius * 0.8) + ' 0,-' + radius + ' Z', {
+		originX: 'center',
+		originY: 'center'
+	});
+	return path;
+}
+
+// 创建星形裁剪路径
+function createStarClipPath(radius) {
+	const points = [];
+	const numPoints = 5;
+	for (let i = 0; i < numPoints * 2; i++) {
+		const angle = (i * Math.PI) / numPoints;
+		const r = i % 2 === 0 ? radius : radius * 0.4;
+		points.push({
+			x: Math.cos(angle) * r,
+			y: Math.sin(angle) * r
+		});
+	}
+	// eslint-disable-next-line no-undef
+	const path = new fabric.Polygon(points, {
+		originX: 'center',
+		originY: 'center'
+	});
+	return path;
+}
+
+// 创建心形裁剪路径
+function createHeartClipPath(radius) {
+	// eslint-disable-next-line no-undef
+	const path = new fabric.Path('M 0,' + (radius * 0.3) + ' C 0,' + (radius * 0.1) + ' -' + (radius * 0.2) + ',0 -' + (radius * 0.5) + ',0 C -' + (radius * 0.8) + ',0 -' + radius + ',' + (radius * 0.2) + ' -' + radius + ',' + (radius * 0.5) + ' C -' + radius + ',' + (radius * 0.8) + ' 0,' + radius + ' 0,' + radius + ' C 0,' + radius + ' ' + radius + ',' + (radius * 0.8) + ' ' + radius + ',' + (radius * 0.5) + ' C ' + radius + ',' + (radius * 0.2) + ' ' + (radius * 0.8) + ',0 ' + (radius * 0.5) + ',0 C ' + (radius * 0.2) + ',0 0,' + (radius * 0.1) + ' 0,' + (radius * 0.3) + ' Z', {
+		originX: 'center',
+		originY: 'center'
+	});
+	return path;
+}
+
+// 创建菱形裁剪路径
+function createDiamondClipPath(radius) {
+	// eslint-disable-next-line no-undef
+	const path = new fabric.Polygon([
+		{ x: 0, y: -radius },
+		{ x: radius, y: 0 },
+		{ x: 0, y: radius },
+		{ x: -radius, y: 0 }
+	], {
+		originX: 'center',
+		originY: 'center'
+	});
+	return path;
+}
+
+// 添加头像装饰外框
+function addAvatarFrame(avatarImg, x, y, scale) {
+	const frameSize = Math.min(avatarImg.width, avatarImg.height) * scale;
+	const frameRadius = frameSize / 2;
+	
+	// eslint-disable-next-line no-undef
+	let frame = null;
+	
+	if (state.avatarFrame === 'circle') {
+		// 圆形外框
+		frame = new fabric.Circle({
+			radius: frameRadius + 8,
+			left: x,
+			top: y,
+			originX: 'center',
+			originY: 'center',
+			fill: 'transparent',
+			stroke: '#ffd700',
+			strokeWidth: 4,
+			selectable: false,
+			evented: false
+		});
+	} else if (state.avatarFrame === 'square') {
+		// 方形外框
+		frame = new fabric.Rect({
+			width: frameSize + 16,
+			height: frameSize + 16,
+			left: x,
+			top: y,
+			originX: 'center',
+			originY: 'center',
+			fill: 'transparent',
+			stroke: '#ffd700',
+			strokeWidth: 4,
+			selectable: false,
+			evented: false
+		});
+	} else if (state.avatarFrame === 'flower') {
+		// 花朵外框
+		frame = new fabric.Circle({
+			radius: frameRadius + 12,
+			left: x,
+			top: y,
+			originX: 'center',
+			originY: 'center',
+			fill: 'transparent',
+			stroke: '#ff6b9d',
+			strokeWidth: 6,
+			strokeDashArray: [10, 5],
+			selectable: false,
+			evented: false
+		});
+	} else if (state.avatarFrame === 'star') {
+		// 星形外框
+		const points = [];
+		const numPoints = 5;
+		const outerRadius = frameRadius + 10;
+		const innerRadius = frameRadius + 5;
+		for (let i = 0; i < numPoints * 2; i++) {
+			const angle = (i * Math.PI) / numPoints;
+			const r = i % 2 === 0 ? outerRadius : innerRadius;
+			points.push({
+				x: Math.cos(angle) * r,
+				y: Math.sin(angle) * r
+			});
+		}
+		frame = new fabric.Polygon(points, {
+			left: x,
+			top: y,
+			originX: 'center',
+			originY: 'center',
+			fill: 'transparent',
+			stroke: '#ffd700',
+			strokeWidth: 3,
+			selectable: false,
+			evented: false
+		});
+	} else if (state.avatarFrame === 'heart') {
+		// 心形外框
+		frame = new fabric.Circle({
+			radius: frameRadius + 8,
+			left: x,
+			top: y,
+			originX: 'center',
+			originY: 'center',
+			fill: 'transparent',
+			stroke: '#ff6b9d',
+			strokeWidth: 4,
+			selectable: false,
+			evented: false
+		});
+	} else if (state.avatarFrame === 'diamond') {
+		// 菱形外框
+		frame = new fabric.Polygon([
+			{ x: 0, y: -(frameRadius + 8) },
+			{ x: frameRadius + 8, y: 0 },
+			{ x: 0, y: frameRadius + 8 },
+			{ x: -(frameRadius + 8), y: 0 }
+		], {
+			left: x,
+			top: y,
+			originX: 'center',
+			originY: 'center',
+			fill: 'transparent',
+			stroke: '#ffd700',
+			strokeWidth: 4,
+			selectable: false,
+			evented: false
+		});
+	}
+	
+	if (frame) {
+		frame.name = '头像外框';
+		canvas.add(frame);
+		canvas.sendToBack(frame); // 将外框放在头像后面
+	}
+}
+
+// 分组场景使用的外框生成器（以组中心为0,0）
+function buildAvatarFrameForGroup(avatarImg, scale) {
+    const frameSize = Math.min(avatarImg.width, avatarImg.height) * scale;
+    const frameRadius = frameSize / 2;
+    let frame = null;
+    if (state.avatarFrame === 'circle') {
+        frame = new fabric.Circle({ radius: frameRadius + 8, left: 0, top: 0, originX: 'center', originY: 'center', fill: 'transparent', stroke: '#ffd700', strokeWidth: 4, selectable: false, evented: false });
+    } else if (state.avatarFrame === 'square') {
+        frame = new fabric.Rect({ width: frameSize + 16, height: frameSize + 16, left: 0, top: 0, originX: 'center', originY: 'center', fill: 'transparent', stroke: '#ffd700', strokeWidth: 4, selectable: false, evented: false });
+    } else if (state.avatarFrame === 'flower') {
+        frame = new fabric.Circle({ radius: frameRadius + 12, left: 0, top: 0, originX: 'center', originY: 'center', fill: 'transparent', stroke: '#ff6b9d', strokeWidth: 6, strokeDashArray: [10, 5], selectable: false, evented: false });
+    } else if (state.avatarFrame === 'star') {
+        const points = []; const numPoints = 5; const outerRadius = frameRadius + 10; const innerRadius = frameRadius + 5;
+        for (let i = 0; i < numPoints * 2; i++) { const angle = (i * Math.PI) / numPoints; const r = i % 2 === 0 ? outerRadius : innerRadius; points.push({ x: Math.cos(angle) * r, y: Math.sin(angle) * r }); }
+        frame = new fabric.Polygon(points, { left: 0, top: 0, originX: 'center', originY: 'center', fill: 'transparent', stroke: '#ffd700', strokeWidth: 3, selectable: false, evented: false });
+    } else if (state.avatarFrame === 'heart') {
+        frame = new fabric.Circle({ radius: frameRadius + 8, left: 0, top: 0, originX: 'center', originY: 'center', fill: 'transparent', stroke: '#ff6b9d', strokeWidth: 4, selectable: false, evented: false });
+    } else if (state.avatarFrame === 'diamond') {
+        frame = new fabric.Polygon([{ x: 0, y: -(frameRadius + 8) }, { x: frameRadius + 8, y: 0 }, { x: 0, y: frameRadius + 8 }, { x: -(frameRadius + 8), y: 0 }], { left: 0, top: 0, originX: 'center', originY: 'center', fill: 'transparent', stroke: '#ffd700', strokeWidth: 4, selectable: false, evented: false });
+    }
+    if (frame) frame.name = '头像外框';
+    return frame;
+}
+// 给现有头像添加外框
+function addFrameToExistingAvatar() {
+    // 优先查找头像组
+    const group = canvas.getObjects().find(obj => obj.name === '头像组');
+    // 如果没有组，尝试找独立头像
+    if (!group) {
+        const loneAvatar = canvas.getObjects().find(obj => obj.name === '头像');
+        if (!loneAvatar) { alert('请先上传头像'); return; }
+        const left = loneAvatar.left; const top = loneAvatar.top; const angle = loneAvatar.angle || 0; const scaleX = loneAvatar.scaleX || 1; const scaleY = loneAvatar.scaleY || 1;
+        // 克隆头像，归一到组局部坐标，并依据新外框形状更新裁剪
+        loneAvatar.clone((cloned) => {
+            cloned.set({ left: 0, top: 0, originX: 'center', originY: 'center' });
+            // 依据当前选择的外框，重建 clipPath（遮罩）
+            const baseSize = Math.min(cloned.width, cloned.height);
+            if (state.avatarFrame === 'circle') {
+                cloned.clipPath = new fabric.Circle({ radius: baseSize/2, originX: 'center', originY: 'center' });
+            } else if (state.avatarFrame === 'square') {
+                cloned.clipPath = new fabric.Rect({ width: baseSize, height: baseSize, originX: 'center', originY: 'center' });
+            } else if (state.avatarFrame === 'flower') {
+                cloned.clipPath = createFlowerClipPath(baseSize/2);
+            } else if (state.avatarFrame === 'star') {
+                cloned.clipPath = createStarClipPath(baseSize/2);
+            } else if (state.avatarFrame === 'heart') {
+                cloned.clipPath = createHeartClipPath(baseSize/2);
+            } else if (state.avatarFrame === 'diamond') {
+                cloned.clipPath = createDiamondClipPath(baseSize/2);
+            } else {
+                cloned.clipPath = null;
+            }
+            // 生成新外框
+            let frame = null;
+            if (state.avatarFrame !== 'none') {
+                frame = buildAvatarFrameForGroup(cloned, scaleX);
+            }
+            const children = frame ? [cloned, frame] : [cloned];
+            // 创建新组并还原位置/角度/缩放
+            // eslint-disable-next-line no-undef
+            const newGroup = new fabric.Group(children, { left, top, originX: 'center', originY: 'center', angle, scaleX, scaleY });
+            newGroup.name = '头像组';
+            canvas.remove(loneAvatar);
+            canvas.add(newGroup);
+            canvas.setActiveObject(newGroup);
+            canvas.requestRenderAll();
+            refreshLayers();
+        });
+        return;
+    }
+    // 组内找到头像
+    const avatar = group._objects?.find?.(o => o.name === '头像');
+    if (!avatar) return;
+    // 记录组变换
+    const gLeft = group.left; const gTop = group.top; const gAngle = group.angle || 0; const gScaleX = group.scaleX || 1; const gScaleY = group.scaleY || 1;
+    const aScale = avatar.scaleX || 1;
+    // 克隆头像用于新组，并同步遮罩
+    avatar.clone((cloned) => {
+        cloned.set({ left: 0, top: 0, originX: 'center', originY: 'center' });
+        const baseSize = Math.min(cloned.width, cloned.height);
+        if (state.avatarFrame === 'circle') {
+            cloned.clipPath = new fabric.Circle({ radius: baseSize/2, originX: 'center', originY: 'center' });
+        } else if (state.avatarFrame === 'square') {
+            cloned.clipPath = new fabric.Rect({ width: baseSize, height: baseSize, originX: 'center', originY: 'center' });
+        } else if (state.avatarFrame === 'flower') {
+            cloned.clipPath = createFlowerClipPath(baseSize/2);
+        } else if (state.avatarFrame === 'star') {
+            cloned.clipPath = createStarClipPath(baseSize/2);
+        } else if (state.avatarFrame === 'heart') {
+            cloned.clipPath = createHeartClipPath(baseSize/2);
+        } else if (state.avatarFrame === 'diamond') {
+            cloned.clipPath = createDiamondClipPath(baseSize/2);
+        } else {
+            cloned.clipPath = null;
+        }
+        // 生成新外框
+        let frame = null;
+        if (state.avatarFrame !== 'none') {
+            frame = buildAvatarFrameForGroup(cloned, aScale);
+        }
+        const children = frame ? [cloned, frame] : [cloned];
+        // eslint-disable-next-line no-undef
+        const newGroup = new fabric.Group(children, { left: gLeft, top: gTop, originX: 'center', originY: 'center', angle: gAngle, scaleX: gScaleX, scaleY: gScaleY });
+        newGroup.name = '头像组';
+        canvas.remove(group);
+        canvas.add(newGroup);
+        canvas.setActiveObject(newGroup);
+        canvas.requestRenderAll();
+        refreshLayers();
+    });
 }
 
 function addText() {
@@ -240,17 +555,8 @@ function download() {
 }
 
 onMounted(() => {
-	initCanvas();
-	
-	// 监听窗口大小变化，重新初始化画布
-	window.addEventListener('resize', () => {
-		if (canvas) {
-			// 延迟重新初始化，避免频繁触发
-			setTimeout(() => {
-				initCanvas();
-			}, 300);
-		}
-	});
+    initCanvas();
+    // 为避免上传图片等动作导致布局细微变化触发 resize 而重建画布，这里暂不自动重建
 });
 // 简单中心/边缘吸附
 // eslint-disable-next-line no-undef
@@ -414,8 +720,8 @@ function moveLayer(i, dir) {
 	<section class="card-pro">
 		<h2>中秋贺卡 · 专业编辑</h2>
 		<div class="layout">
-			<div class="stage">
-				<canvas :id="canvasId" :width="W" :height="H"></canvas>
+			<div class="stage" :style="{ height: (H + 40) + 'px', overflow: 'hidden' }">
+				<canvas :id="canvasId" :width="W" :height="H" :style="{ width: W + 'px', height: H + 'px' }"></canvas>
 			</div>
 			<div class="tools">
 				<label class="row"><span>背景</span>
@@ -438,6 +744,17 @@ function moveLayer(i, dir) {
 				</div>
 				<div class="row"><button class="btn" @click="addText">添加文字</button></div>
 				<div class="row"><button class="btn" @click="addVText">添加竖排文字</button></div>
+				<label class="row"><span>头像外框</span>
+					<select v-model="state.avatarFrame" @change="addFrameToExistingAvatar">
+						<option value="none">无外框</option>
+						<option value="circle">圆形外框</option>
+						<option value="square">方形外框</option>
+						<option value="flower">花朵外框</option>
+						<option value="star">星形外框</option>
+						<option value="heart">心形外框</option>
+						<option value="diamond">菱形外框</option>
+					</select>
+				</label>
 				<div class="row"><button class="btn" @click="addAvatar">上传头像</button></div>
 				<div class="assets">
 					<div class="group">素材</div>
@@ -508,34 +825,35 @@ function moveLayer(i, dir) {
 	display: grid; 
 	grid-template-columns: 1fr; 
 	gap: 16px; 
-	max-width: 1400px;
+	width: 100%;
 	margin: 0 auto;
 }
 
 @media (min-width: 1200px) { 
 	.layout { 
-		grid-template-columns: 1fr 380px; 
+		grid-template-columns: minmax(0, 1fr) minmax(280px, 420px); 
 		gap: 24px;
+		width: 100%;
 	} 
 }
 
 .stage { 
-	width: 100%; 
-	display: grid; 
-	place-items: center; 
-	background: #f8f9fa;
-	border-radius: 12px;
-	padding: 20px;
-	box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    width: 100%; 
+    display: grid; 
+    place-items: center; 
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    min-width: 0; /* 防止内部canvas宽度参与布局撑开 */
 }
 
 canvas { 
-	width: 100%; 
-	max-width: 900px;
-	height: auto; 
-	border-radius: 12px; 
-	box-shadow: 0 8px 24px rgba(0,0,0,.1); 
-	background: #faf7ef; 
+    width: 100%; 
+    height: auto; 
+    border-radius: 12px; 
+    box-shadow: 0 8px 24px rgba(0,0,0,.1); 
+    background: #faf7ef; 
 }
 
 .tools { 
@@ -547,6 +865,8 @@ canvas {
 	padding: 16px;
 	box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 	height: fit-content;
+	min-width: 0; /* 防止内容撑破 */
+	max-width: 100%;
 }
 
 .row { 
